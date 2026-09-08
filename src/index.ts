@@ -2,13 +2,17 @@
  * Orchestrates the three stages (collect, summarise, store) and re-exports the
  * project's public API.
  */
-import { today, isValidDate, assertClaudeConfigured } from './config.js';
-import { logger } from './logger.js';
-import { fetchGitHub } from './fetcher/github.js';
-import { fetchDevTo } from './fetcher/devto.js';
-import { countBySource, type FeedItem, type SourceError } from './fetcher/types.js';
-import { generateSummary } from './summarizer/claude.js';
-import { SummaryStore, openStore, type Summary } from './summarizer/storage.js';
+import { today, isValidDate, assertClaudeConfigured } from "./config.js";
+import { logger } from "./logger.js";
+import { fetchGitHub } from "./fetcher/github.js";
+import { fetchDevTo } from "./fetcher/devto.js";
+import {
+  countBySource,
+  type FeedItem,
+  type SourceError,
+} from "./fetcher/types.js";
+import { generateSummary } from "./summarizer/claude.js";
+import { SummaryStore, openStore, type Summary } from "./summarizer/storage.js";
 
 /** Options for a pipeline run. */
 export interface WatchOptions {
@@ -18,7 +22,7 @@ export interface WatchOptions {
   store?: SummaryStore;
 }
 
-export type WatchStatus = 'created' | 'existing' | 'fetch-only' | 'no-data';
+export type WatchStatus = "created" | "existing" | "fetch-only" | "no-data";
 
 /** Report of a pipeline run. */
 export interface WatchReport {
@@ -34,8 +38,11 @@ export interface WatchReport {
  * Stage 1: queries GitHub and Dev.to in parallel, drops duplicates and sorts
  * newest first.
  */
-export async function collectItems(): Promise<{ items: FeedItem[]; errors: SourceError[] }> {
-  logger.info('Collecting data (GitHub + Dev.to)...');
+export async function collectItems(): Promise<{
+  items: FeedItem[];
+  errors: SourceError[];
+}> {
+  logger.info("Collecting data (GitHub + Dev.to)...");
 
   const [github, devto] = await Promise.all([fetchGitHub(), fetchDevTo()]);
 
@@ -48,7 +55,10 @@ export async function collectItems(): Promise<{ items: FeedItem[]; errors: Sourc
     items.push(item);
   }
 
-  items.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+  items.sort(
+    (a, b) =>
+      new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime(),
+  );
 
   return { items, errors: [...github.errors, ...devto.errors] };
 }
@@ -57,7 +67,9 @@ export async function collectItems(): Promise<{ items: FeedItem[]; errors: Sourc
  * Full pipeline. Deduplication by date happens before the Claude call: if a
  * summary already exists for the day, no token is spent.
  */
-export async function runWatch(options: WatchOptions = {}): Promise<WatchReport> {
+export async function runWatch(
+  options: WatchOptions = {},
+): Promise<WatchReport> {
   const date = options.date ?? today();
 
   if (!isValidDate(date)) {
@@ -70,9 +82,11 @@ export async function runWatch(options: WatchOptions = {}): Promise<WatchReport>
   try {
     if (!(options.force ?? false) && store.hasSummary(date)) {
       const existing = store.getSummary(date);
-      logger.info(`A summary already exists for ${date}: skipping (use --force to regenerate).`);
+      logger.info(
+        `A summary already exists for ${date}: skipping (use --force to regenerate).`,
+      );
       return {
-        status: 'existing',
+        status: "existing",
         date,
         items: existing === null ? [] : store.getItems(existing.id),
         bySource: existing?.sources ?? {},
@@ -93,47 +107,79 @@ export async function runWatch(options: WatchOptions = {}): Promise<WatchReport>
       `Collection finished: ${items.length} item(s) total ` +
         `(${Object.entries(bySource)
           .map(([source, count]) => `${source}: ${count}`)
-          .join(', ')}).`,
+          .join(", ")}).`,
     );
 
     if (options.skipSummary ?? false) {
-      logger.info('Fetch-only mode: no Claude call, nothing written to the store.');
-      return { status: 'fetch-only', date, items, bySource, errors, summary: null };
+      logger.info(
+        "Fetch-only mode: no Claude call, nothing written to the store.",
+      );
+      return {
+        status: "fetch-only",
+        date,
+        items,
+        bySource,
+        errors,
+        summary: null,
+      };
     }
 
     if (items.length === 0) {
-      logger.error('No data collected: the summary cannot be generated. See the errors above.');
-      return { status: 'no-data', date, items, bySource, errors, summary: null };
+      logger.error(
+        "No data collected: the summary cannot be generated. See the errors above.",
+      );
+      return {
+        status: "no-data",
+        date,
+        items,
+        bySource,
+        errors,
+        summary: null,
+      };
     }
 
     const generated = await generateSummary(items, date);
     const summary = store.saveSummary(
       {
         date,
-        title: generated.title,
-        markdown: generated.markdown,
+        title: generated.structuredData.title,
+        structuredData: generated.structuredData,
         model: generated.model,
         items,
       },
       options.force ?? false,
     );
 
-    return { status: 'created', date, items, bySource, errors, summary };
+    return { status: "created", date, items, bySource, errors, summary };
   } finally {
     if (!storeProvided) store.close();
   }
 }
 
-export { config, today, isValidDate, daysAgo, assertClaudeConfigured } from './config.js';
-export { logger, errorMessage } from './logger.js';
-export * from './fetcher/types.js';
-export { fetchGitHub, fetchTrendingRepos, fetchRecentReleases } from './fetcher/github.js';
-export { fetchDevTo } from './fetcher/devto.js';
-export { generateSummary, buildCorpus, type GeneratedSummary } from './summarizer/claude.js';
+export {
+  config,
+  today,
+  isValidDate,
+  daysAgo,
+  assertClaudeConfigured,
+} from "./config.js";
+export { logger, errorMessage } from "./logger.js";
+export * from "./fetcher/types.js";
+export {
+  fetchGitHub,
+  fetchTrendingRepos,
+  fetchRecentReleases,
+} from "./fetcher/github.js";
+export { fetchDevTo } from "./fetcher/devto.js";
+export {
+  generateSummary,
+  buildCorpus,
+  type GeneratedSummary,
+} from "./summarizer/claude.js";
 export {
   SummaryStore,
   openStore,
   type SummaryMeta,
   type Summary,
   type NewSummary,
-} from './summarizer/storage.js';
+} from "./summarizer/storage.js";

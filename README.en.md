@@ -1,9 +1,9 @@
 # dev-stack-watcher-mcp
 
-*[Version française](README.md)*
+_[Version française](README.md)_
 
 Automated tech watch: every day the project collects **GitHub** and **Dev.to** activity,
-asks **Claude** to turn it into a markdown digest, stores it in **SQLite** (one summary per
+asks **Claude** to turn it into a structured JSON digest, stores it in **SQLite** (one summary per
 day) and exposes it through an **MCP** server.
 
 The code is in English; **the generated digests are in French**, since that is the
@@ -19,7 +19,7 @@ deliverable meant to be read.
 STAGE 1 — Collect           STAGE 2 — Summarise + store        STAGE 3 — Expose
 ┌────────────────────┐      ┌──────────────────────────┐       ┌──────────────────┐
 │ GitHub API         │      │ Claude API               │       │ MCP server       │
-│  trending repos    │──┐   │  → structured markdown   │   ┌──▶│                  │
+│  trending repos    │──┐   │  → structured JSON      │   ┌──▶│                  │
 │  releases (7 d)    │  ├──▶├──────────────────────────┤───┤   │ summaries://list │
 ├────────────────────┤  │   │ SQLite                   │   │   │ summary://{date} │
 │ Dev.to API         │──┘   │  1 summary / day (UNIQUE)│   └──▶│ 3 MCP tools      │
@@ -28,7 +28,7 @@ STAGE 1 — Collect           STAGE 2 — Summarise + store        STAGE 3 — E
 ```
 
 **Deduplication** — the `summary_date` column carries a `UNIQUE` constraint, and the check
-runs *before* the Claude call: running twice on the same day spends no tokens.
+runs _before_ the Claude call: running twice on the same day spends no tokens.
 
 ---
 
@@ -54,15 +54,15 @@ The SQLite store and its tables are created automatically on first run.
 
 Everything goes through the `.env` file (see `.env.example` for the full list).
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | — | **Required** to generate a summary |
-| `CLAUDE_MODEL` | `claude-opus-5` | Model used for summarisation |
-| `GITHUB_TOKEN` | — | Scope-less token; lifts the 60 req/h limit |
-| `GITHUB_LOOKBACK_DAYS` | `7` | Window for trending repositories and releases |
-| `DEVTO_ARTICLE_LIMIT` | `15` | Number of articles collected |
-| `DB_PATH` | `./data/watch.db` | SQLite file location |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, `silent` |
+| Variable               | Default           | Purpose                                       |
+| ---------------------- | ----------------- | --------------------------------------------- |
+| `ANTHROPIC_API_KEY`    | —                 | **Required** to generate a summary            |
+| `CLAUDE_MODEL`         | `claude-opus-5`   | Model used for summarisation                  |
+| `GITHUB_TOKEN`         | —                 | Scope-less token; lifts the 60 req/h limit    |
+| `GITHUB_LOOKBACK_DAYS` | `7`               | Window for trending repositories and releases |
+| `DEVTO_ARTICLE_LIMIT`  | `15`              | Number of articles collected                  |
+| `DB_PATH`              | `./data/watch.db` | SQLite file location                          |
+| `LOG_LEVEL`            | `info`            | `debug`, `info`, `warn`, `error`, `silent`    |
 
 > Every log line goes to `stderr`: `stdout` is reserved for the MCP server's JSON-RPC
 > protocol, and a single stray line would break the connection.
@@ -116,16 +116,16 @@ In stdio mode the server waits silently: that is expected, it is driven by the c
 
 The server exposes **two resources** and **three tools**.
 
-| Resource | Content |
-|---|---|
-| `summaries://list` | JSON catalogue: date, title, model, item count |
-| `summary://{date}` | Markdown summary for one day (`YYYY-MM-DD`) |
+| Resource           | Content                                            |
+| ------------------ | -------------------------------------------------- |
+| `summaries://list` | JSON catalogue: date, title, model, item count     |
+| `summary://{date}` | Structured JSON summary for one day (`YYYY-MM-DD`) |
 
-| Tool | Parameters |
-|---|---|
-| `list_summaries` | `limit` (1–200, default 30) |
-| `get_summary` | `date` (`YYYY-MM-DD`, required) |
-| `latest_summary` | — |
+| Tool             | Parameters                      |
+| ---------------- | ------------------------------- |
+| `list_summaries` | `limit` (1–200, default 30)     |
+| `get_summary`    | `date` (`YYYY-MM-DD`, required) |
+| `latest_summary` | —                               |
 
 The tools let Claude query the store in natural language: "show me the digest for
 September 8th", "what shipped on the Next.js side?".

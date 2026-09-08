@@ -1,13 +1,13 @@
 /**
  * MCP server exposed over stdio.
  *
- * Resources: `summaries://list` (JSON catalogue) and `summary://{date}` (markdown).
+ * Resources: `summaries://list` (JSON catalogue) and `summary://{date}` (structured JSON).
  * Tools:     `list_summaries`, `get_summary`, `latest_summary`.
  */
-import path from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
-import { Server } from '@modelcontextprotocol/sdk/server/index.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ErrorCode,
@@ -16,19 +16,22 @@ import {
   ListToolsRequestSchema,
   McpError,
   ReadResourceRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
-import { config, isValidDate } from '../config.js';
-import { logger, errorMessage } from '../logger.js';
-import { openStore, type SummaryStore } from '../summarizer/storage.js';
+} from "@modelcontextprotocol/sdk/types.js";
+import { config, isValidDate } from "../config.js";
+import { logger, errorMessage } from "../logger.js";
+import { openStore, type SummaryStore } from "../summarizer/storage.js";
 
-const SUMMARY_PREFIX = 'summary://';
-const LIST_URI = 'summaries://list';
+const SUMMARY_PREFIX = "summary://";
+const LIST_URI = "summaries://list";
 
 /** Extracts the date from a `summary://YYYY-MM-DD` URI. */
 function dateFromUri(uri: string): string | null {
   if (!uri.startsWith(SUMMARY_PREFIX)) return null;
-  const date = decodeURIComponent(uri.slice(SUMMARY_PREFIX.length)).replace(/\/+$/, '');
-  return date === '' ? null : date;
+  const date = decodeURIComponent(uri.slice(SUMMARY_PREFIX.length)).replace(
+    /\/+$/,
+    "",
+  );
+  return date === "" ? null : date;
 }
 
 function buildCatalog(store: SummaryStore): string {
@@ -56,13 +59,16 @@ function buildCatalog(store: SummaryStore): string {
   );
 }
 
-function toolResponse(text: string, isError = false): {
-  content: { type: 'text'; text: string }[];
+function toolResponse(
+  text: string,
+  isError = false,
+): {
+  content: { type: "text"; text: string }[];
   isError?: boolean;
 } {
   return isError
-    ? { content: [{ type: 'text', text }], isError: true }
-    : { content: [{ type: 'text', text }] };
+    ? { content: [{ type: "text", text }], isError: true }
+    : { content: [{ type: "text", text }] };
 }
 
 /** Creates the server and registers its request handlers. */
@@ -82,16 +88,16 @@ export function createMcpServer(store: SummaryStore): Server {
       resources: [
         {
           uri: LIST_URI,
-          name: 'Watch summary catalogue',
+          name: "Watch summary catalogue",
           description:
-            'JSON catalogue of every available summary: date, title, model, item count and read URI.',
-          mimeType: 'application/json',
+            "JSON catalogue of every available summary: date, title, model, item count and read URI.",
+          mimeType: "application/json",
         },
         ...summaries.map((summary) => ({
           uri: `${SUMMARY_PREFIX}${summary.date}`,
           name: `Watch summary for ${summary.date}`,
           description: `${summary.title} (${summary.itemCount} item(s), model ${summary.model})`,
-          mimeType: 'text/markdown',
+          mimeType: "application/json",
         })),
       ],
     };
@@ -101,9 +107,10 @@ export function createMcpServer(store: SummaryStore): Server {
     resourceTemplates: [
       {
         uriTemplate: `${SUMMARY_PREFIX}{date}`,
-        name: 'Watch summary by date',
-        description: 'Markdown body of one day\'s summary. `date` in YYYY-MM-DD format.',
-        mimeType: 'text/markdown',
+        name: "Watch summary by date",
+        description:
+          "Structured JSON summary for one day. `date` in YYYY-MM-DD format.",
+        mimeType: "application/json",
       },
     ],
   }));
@@ -112,7 +119,11 @@ export function createMcpServer(store: SummaryStore): Server {
     const uri = request.params.uri;
 
     if (uri === LIST_URI) {
-      return { contents: [{ uri, mimeType: 'application/json', text: buildCatalog(store) }] };
+      return {
+        contents: [
+          { uri, mimeType: "application/json", text: buildCatalog(store) },
+        ],
+      };
     }
 
     const date = dateFromUri(uri);
@@ -124,7 +135,10 @@ export function createMcpServer(store: SummaryStore): Server {
     }
 
     if (!isValidDate(date)) {
-      throw new McpError(ErrorCode.InvalidParams, `Invalid date: "${date}". Expected YYYY-MM-DD.`);
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        `Invalid date: "${date}". Expected YYYY-MM-DD.`,
+      );
     }
 
     const summary = store.getSummary(date);
@@ -135,7 +149,15 @@ export function createMcpServer(store: SummaryStore): Server {
       );
     }
 
-    return { contents: [{ uri, mimeType: 'text/markdown', text: summary.markdown }] };
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: "application/json",
+          text: JSON.stringify(summary.structuredData, null, 2),
+        },
+      ],
+    };
   });
 
   // --- Tools ----------------------------------------------------------------
@@ -143,15 +165,15 @@ export function createMcpServer(store: SummaryStore): Server {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: [
       {
-        name: 'list_summaries',
+        name: "list_summaries",
         description:
-          'Lists the watch summaries available in the store, newest first (metadata only).',
+          "Lists the watch summaries available in the store, newest first (metadata only).",
         inputSchema: {
-          type: 'object',
+          type: "object",
           properties: {
             limit: {
-              type: 'integer',
-              description: 'Maximum number of summaries to return (1 to 200).',
+              type: "integer",
+              description: "Maximum number of summaries to return (1 to 200).",
               minimum: 1,
               maximum: 200,
               default: 30,
@@ -161,25 +183,31 @@ export function createMcpServer(store: SummaryStore): Server {
         },
       },
       {
-        name: 'get_summary',
-        description: 'Returns the full markdown watch summary for a given date.',
+        name: "get_summary",
+        description:
+          "Returns the full structured watch summary for a given date.",
         inputSchema: {
-          type: 'object',
+          type: "object",
           properties: {
             date: {
-              type: 'string',
-              description: 'Summary date in YYYY-MM-DD format.',
-              pattern: '^\\d{4}-\\d{2}-\\d{2}$',
+              type: "string",
+              description: "Summary date in YYYY-MM-DD format.",
+              pattern: "^\\d{4}-\\d{2}-\\d{2}$",
             },
           },
-          required: ['date'],
+          required: ["date"],
           additionalProperties: false,
         },
       },
       {
-        name: 'latest_summary',
-        description: 'Returns the most recent watch summary available in the store.',
-        inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+        name: "latest_summary",
+        description:
+          "Returns the most recent watch summary available in the store.",
+        inputSchema: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
       },
     ],
   }));
@@ -189,57 +217,69 @@ export function createMcpServer(store: SummaryStore): Server {
 
     try {
       switch (name) {
-        case 'list_summaries': {
+        case "list_summaries": {
           const rawLimit = Number((args as { limit?: unknown })?.limit ?? 30);
-          const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 30;
+          const limit = Number.isFinite(rawLimit)
+            ? Math.min(Math.max(rawLimit, 1), 200)
+            : 30;
           const summaries = store.listSummaries(limit);
 
           if (summaries.length === 0) {
             return toolResponse(
-              'No summary in the store. Run `npm run fetch` to generate today\'s digest.',
+              "No summary in the store. Run `npm run fetch` to generate today's digest.",
             );
           }
 
           return toolResponse(JSON.stringify(summaries, null, 2));
         }
 
-        case 'get_summary': {
-          const date = String((args as { date?: unknown })?.date ?? '');
+        case "get_summary": {
+          const date = String((args as { date?: unknown })?.date ?? "");
 
           if (!isValidDate(date)) {
-            return toolResponse(`Invalid date: "${date}". Expected YYYY-MM-DD.`, true);
+            return toolResponse(
+              `Invalid date: "${date}". Expected YYYY-MM-DD.`,
+              true,
+            );
           }
 
           const summary = store.getSummary(date);
           if (summary === null) {
-            const available = store.listSummaries(10).map((entry) => entry.date);
+            const available = store
+              .listSummaries(10)
+              .map((entry) => entry.date);
             return toolResponse(
               `No summary for ${date}. Available dates: ` +
-                `${available.length > 0 ? available.join(', ') : 'none'}.`,
+                `${available.length > 0 ? available.join(", ") : "none"}.`,
               true,
             );
           }
 
-          return toolResponse(summary.markdown);
+          return toolResponse(JSON.stringify(summary.structuredData, null, 2));
         }
 
-        case 'latest_summary': {
+        case "latest_summary": {
           const summary = store.getLatestSummary();
           if (summary === null) {
             return toolResponse(
-              'No summary in the store. Run `npm run fetch` to generate today\'s digest.',
+              "No summary in the store. Run `npm run fetch` to generate today's digest.",
               true,
             );
           }
-          return toolResponse(summary.markdown);
+          return toolResponse(JSON.stringify(summary.structuredData, null, 2));
         }
 
         default:
-          throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: "${name}".`);
+          throw new McpError(
+            ErrorCode.MethodNotFound,
+            `Unknown tool: "${name}".`,
+          );
       }
     } catch (error) {
       if (error instanceof McpError) throw error;
-      logger.error(`Error while calling tool "${name}": ${errorMessage(error)}`);
+      logger.error(
+        `Error while calling tool "${name}": ${errorMessage(error)}`,
+      );
       return toolResponse(`Internal error: ${errorMessage(error)}`, true);
     }
   });
@@ -261,8 +301,8 @@ export async function startStdioServer(): Promise<void> {
     });
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 
   await server.connect(transport);
 
@@ -277,7 +317,9 @@ export async function startStdioServer(): Promise<void> {
 const entryPath = process.argv[1];
 if (entryPath !== undefined) {
   const currentModule = path.resolve(fileURLToPath(import.meta.url));
-  const entryModule = path.resolve(fileURLToPath(pathToFileURL(entryPath).href));
+  const entryModule = path.resolve(
+    fileURLToPath(pathToFileURL(entryPath).href),
+  );
 
   if (currentModule === entryModule) {
     startStdioServer().catch((error: unknown) => {

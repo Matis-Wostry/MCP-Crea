@@ -1,9 +1,9 @@
 # dev-stack-watcher-mcp
 
-*[English version](README.en.md)*
+_[English version](README.en.md)_
 
 Veille technique automatisée : le projet collecte chaque jour l'actualité **GitHub** et
-**Dev.to**, demande à **Claude** d'en produire une synthèse en markdown, la stocke dans
+**Dev.to**, demande à **Claude** d'en produire une synthèse JSON structurée, la stocke dans
 **SQLite** (un seul résumé par jour) et l'expose via un serveur **MCP**.
 
 Le code est en anglais (convention professionnelle) ; **les résumés produits sont en
@@ -19,7 +19,7 @@ français**, puisque c'est le livrable destiné à être lu.
 ÉTAPE 1 — Collecte          ÉTAPE 2 — Synthèse + stockage      ÉTAPE 3 — Exposition
 ┌────────────────────┐      ┌──────────────────────────┐       ┌──────────────────┐
 │ GitHub API         │      │ API Claude               │       │ Serveur MCP      │
-│  dépôts en vogue   │──┐   │  → markdown structuré    │   ┌──▶│                  │
+│  dépôts en vogue   │──┐   │  → JSON structuré       │   ┌──▶│                  │
 │  releases (7 j)    │  ├──▶├──────────────────────────┤───┤   │ summaries://list │
 ├────────────────────┤  │   │ SQLite                   │   │   │ summary://{date} │
 │ Dev.to API         │──┘   │  1 résumé / jour (UNIQUE)│   └──▶│ 3 outils MCP     │
@@ -28,7 +28,7 @@ français**, puisque c'est le livrable destiné à être lu.
 ```
 
 **Déduplication** — la colonne `summary_date` porte une contrainte `UNIQUE`, et la
-vérification a lieu *avant* l'appel à Claude : relancer deux fois dans la même journée ne
+vérification a lieu _avant_ l'appel à Claude : relancer deux fois dans la même journée ne
 consomme aucun token.
 
 ---
@@ -55,15 +55,15 @@ La base SQLite et ses tables sont créées automatiquement au premier lancement.
 
 Tout passe par le fichier `.env` (voir `.env.example` pour la liste complète).
 
-| Variable | Défaut | Rôle |
-|---|---|---|
-| `ANTHROPIC_API_KEY` | — | **Obligatoire** pour générer un résumé |
-| `CLAUDE_MODEL` | `claude-opus-5` | Modèle de synthèse |
-| `GITHUB_TOKEN` | — | Jeton sans scope ; lève la limite de 60 req/h |
-| `GITHUB_LOOKBACK_DAYS` | `7` | Fenêtre des tendances et releases |
-| `DEVTO_ARTICLE_LIMIT` | `15` | Nombre d'articles collectés |
-| `DB_PATH` | `./data/watch.db` | Emplacement du fichier SQLite |
-| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`, `silent` |
+| Variable               | Défaut            | Rôle                                          |
+| ---------------------- | ----------------- | --------------------------------------------- |
+| `ANTHROPIC_API_KEY`    | —                 | **Obligatoire** pour générer un résumé        |
+| `CLAUDE_MODEL`         | `claude-opus-5`   | Modèle de synthèse                            |
+| `GITHUB_TOKEN`         | —                 | Jeton sans scope ; lève la limite de 60 req/h |
+| `GITHUB_LOOKBACK_DAYS` | `7`               | Fenêtre des tendances et releases             |
+| `DEVTO_ARTICLE_LIMIT`  | `15`              | Nombre d'articles collectés                   |
+| `DB_PATH`              | `./data/watch.db` | Emplacement du fichier SQLite                 |
+| `LOG_LEVEL`            | `info`            | `debug`, `info`, `warn`, `error`, `silent`    |
 
 > Tous les logs partent sur `stderr` : `stdout` est réservé au protocole JSON-RPC du
 > serveur MCP, et la moindre ligne parasite casserait la communication.
@@ -118,16 +118,16 @@ le client.
 
 Le serveur expose **deux ressources** et **trois outils**.
 
-| Ressource | Contenu |
-|---|---|
+| Ressource          | Contenu                                                 |
+| ------------------ | ------------------------------------------------------- |
 | `summaries://list` | Catalogue JSON : date, titre, modèle, nombre d'éléments |
-| `summary://{date}` | Résumé markdown d'une journée (`AAAA-MM-JJ`) |
+| `summary://{date}` | Résumé JSON structuré d'une journée (`AAAA-MM-JJ`)      |
 
-| Outil | Paramètres |
-|---|---|
-| `list_summaries` | `limit` (1–200, défaut 30) |
-| `get_summary` | `date` (`AAAA-MM-JJ`, requis) |
-| `latest_summary` | — |
+| Outil            | Paramètres                    |
+| ---------------- | ----------------------------- |
+| `list_summaries` | `limit` (1–200, défaut 30)    |
+| `get_summary`    | `date` (`AAAA-MM-JJ`, requis) |
+| `latest_summary` | —                             |
 
 Les outils permettent à Claude d'interroger la base en langage naturel : « montre-moi la
 veille du 8 septembre », « qu'est-ce qui est sorti côté Next.js ? ».

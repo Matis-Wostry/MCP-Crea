@@ -5,7 +5,7 @@
  * Commands:
  *   fetch [--date=YYYY-MM-DD] [--force] [--skip-summary]  collect + summarise + store
  *   list  [--limit=N]                                     list stored summaries
- *   show  <date>                                          print a summary as markdown
+ *   show  <date>                                          print a summary as JSON
  *   delete <date>                                         delete a summary
  *   mcp                                                   start the MCP server (stdio)
  *   mcp-http                                              start the MCP server (HTTP)
@@ -13,12 +13,12 @@
  *
  * Only `show` writes to stdout; everything else goes through the logger (stderr).
  */
-import { config, today, isValidDate, ConfigurationError } from './config.js';
-import { logger, errorMessage } from './logger.js';
-import { runWatch } from './index.js';
-import { openStore } from './summarizer/storage.js';
-import { startStdioServer } from './mcp/server.js';
-import { startHttpServer } from './mcp/http.js';
+import { config, today, isValidDate, ConfigurationError } from "./config.js";
+import { logger, errorMessage } from "./logger.js";
+import { runWatch } from "./index.js";
+import { openStore } from "./summarizer/storage.js";
+import { startStdioServer } from "./mcp/server.js";
+import { startHttpServer } from "./mcp/http.js";
 
 interface CliArgs {
   command: string;
@@ -29,15 +29,15 @@ interface CliArgs {
 
 /** Parses `process.argv`: command, positional args, `--key=value` and `--flag`. */
 function parseArgs(argv: string[]): CliArgs {
-  const [command = 'help', ...rest] = argv;
+  const [command = "help", ...rest] = argv;
   const positional: string[] = [];
   const options = new Map<string, string>();
   const flags = new Set<string>();
 
   for (const argument of rest) {
-    if (argument.startsWith('--')) {
+    if (argument.startsWith("--")) {
       const content = argument.slice(2);
-      const separator = content.indexOf('=');
+      const separator = content.indexOf("=");
 
       if (separator === -1) {
         flags.add(content);
@@ -61,7 +61,7 @@ USAGE
   npm run mcp                            Start the MCP server on stdio
   npm run mcp:http                       Start the MCP server on http://127.0.0.1:3000/mcp
   npm run list                           List the available summaries
-  npm run show -- 2026-09-08             Print one summary as markdown
+  npm run show -- 2026-09-08             Print one summary as JSON
 
   npx tsx src/cli.ts <command> [options]
 
@@ -74,7 +74,7 @@ COMMANDS
   list        List stored summaries, newest first.
               --limit=N           Maximum number of rows (default: 30).
 
-  show        Print a summary's markdown on standard output.
+  show        Print a summary's structured JSON on standard output.
               show <date>         Date in YYYY-MM-DD format (default: the most recent).
 
   delete      Delete the summary for a given date.
@@ -90,15 +90,15 @@ COMMANDS
 CONFIGURATION
   .env file (see .env.example).
   SQLite store : ${config.dbPath}
-  MCP endpoint : http://${config.mcp.http.host}:${config.mcp.http.port}${config.mcp.http.path} (token ${config.mcp.token === undefined ? 'disabled' : 'required'})
+  MCP endpoint : http://${config.mcp.http.host}:${config.mcp.http.port}${config.mcp.http.path} (token ${config.mcp.token === undefined ? "disabled" : "required"})
 `;
   process.stderr.write(`${help.trim()}\n`);
 }
 
 async function runFetchCommand(args: CliArgs): Promise<void> {
-  const date = args.options.get('date') ?? today();
-  const force = args.flags.has('force');
-  const skipSummary = args.flags.has('skip-summary');
+  const date = args.options.get("date") ?? today();
+  const force = args.flags.has("force");
+  const skipSummary = args.flags.has("skip-summary");
 
   const report = await runWatch({ date, force, skipSummary });
 
@@ -107,18 +107,20 @@ async function runFetchCommand(args: CliArgs): Promise<void> {
   }
 
   switch (report.status) {
-    case 'created':
+    case "created":
       logger.success(
         `Summary for ${report.date} created and stored. Read it with: npm run show -- ${report.date}`,
       );
       break;
-    case 'existing':
+    case "existing":
       logger.info(
         `Summary for ${report.date} already exists (deduplication). Re-run with --force to regenerate.`,
       );
       break;
-    case 'fetch-only':
-      logger.success(`Collection finished: ${report.items.length} item(s), no summary generated.`);
+    case "fetch-only":
+      logger.success(
+        `Collection finished: ${report.items.length} item(s), no summary generated.`,
+      );
       for (const item of report.items.slice(0, 10)) {
         logger.info(`  [${item.source}] ${item.title} - ${item.url}`);
       }
@@ -126,22 +128,26 @@ async function runFetchCommand(args: CliArgs): Promise<void> {
         logger.info(`  ... and ${report.items.length - 10} more item(s).`);
       }
       break;
-    case 'no-data':
-      logger.error('No data collected: check network connectivity and GITHUB_TOKEN.');
+    case "no-data":
+      logger.error(
+        "No data collected: check network connectivity and GITHUB_TOKEN.",
+      );
       process.exitCode = 1;
       break;
   }
 }
 
 function runListCommand(args: CliArgs): void {
-  const limit = Number.parseInt(args.options.get('limit') ?? '30', 10);
+  const limit = Number.parseInt(args.options.get("limit") ?? "30", 10);
   const store = openStore();
 
   try {
     const summaries = store.listSummaries(Number.isNaN(limit) ? 30 : limit);
 
     if (summaries.length === 0) {
-      logger.info('No summary stored. Run `npm run fetch` to generate today\'s digest.');
+      logger.info(
+        "No summary stored. Run `npm run fetch` to generate today's digest.",
+      );
       return;
     }
 
@@ -149,7 +155,7 @@ function runListCommand(args: CliArgs): void {
     for (const summary of summaries) {
       const sourceBreakdown = Object.entries(summary.sources)
         .map(([source, count]) => `${source}=${count}`)
-        .join(' ');
+        .join(" ");
       logger.info(
         `  ${summary.date}  ${String(summary.itemCount).padStart(3)} items  ` +
           `${summary.model.padEnd(18)}  ${sourceBreakdown}`,
@@ -164,17 +170,19 @@ function runShowCommand(args: CliArgs): void {
   const store = openStore();
 
   try {
-    const requestedDate = args.positional[0] ?? args.options.get('date');
+    const requestedDate = args.positional[0] ?? args.options.get("date");
 
     if (requestedDate === undefined) {
       const latest = store.getLatestSummary();
       if (latest === null) {
-        logger.error('No summary stored.');
+        logger.error("No summary stored.");
         process.exitCode = 1;
         return;
       }
       logger.info(`Most recent summary: ${latest.date}`);
-      process.stdout.write(`${latest.markdown}\n`);
+      process.stdout.write(
+        `${JSON.stringify(latest.structuredData, null, 2)}\n`,
+      );
       return;
     }
 
@@ -189,23 +197,25 @@ function runShowCommand(args: CliArgs): void {
       const available = store.listSummaries(10).map((entry) => entry.date);
       logger.error(
         `No summary for ${requestedDate}. Available dates: ` +
-          `${available.length > 0 ? available.join(', ') : 'none'}.`,
+          `${available.length > 0 ? available.join(", ") : "none"}.`,
       );
       process.exitCode = 1;
       return;
     }
 
-    process.stdout.write(`${summary.markdown}\n`);
+    process.stdout.write(
+      `${JSON.stringify(summary.structuredData, null, 2)}\n`,
+    );
   } finally {
     store.close();
   }
 }
 
 function runDeleteCommand(args: CliArgs): void {
-  const date = args.positional[0] ?? args.options.get('date');
+  const date = args.positional[0] ?? args.options.get("date");
 
   if (date === undefined || !isValidDate(date)) {
-    logger.error('Usage: delete <YYYY-MM-DD>');
+    logger.error("Usage: delete <YYYY-MM-DD>");
     process.exitCode = 1;
     return;
   }
@@ -226,33 +236,33 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   switch (args.command) {
-    case 'fetch':
+    case "fetch":
       await runFetchCommand(args);
       break;
 
-    case 'list':
+    case "list":
       runListCommand(args);
       break;
 
-    case 'show':
+    case "show":
       runShowCommand(args);
       break;
 
-    case 'delete':
+    case "delete":
       runDeleteCommand(args);
       break;
 
-    case 'mcp':
+    case "mcp":
       await startStdioServer();
       break;
 
-    case 'mcp-http':
+    case "mcp-http":
       await startHttpServer();
       break;
 
-    case 'help':
-    case '--help':
-    case '-h':
+    case "help":
+    case "--help":
+    case "-h":
       printHelp();
       break;
 
@@ -268,8 +278,8 @@ main().catch((error: unknown) => {
     logger.error(`Incomplete configuration: ${error.message}`);
   } else {
     logger.error(`Command failed: ${errorMessage(error)}`);
-    if (process.env.LOG_LEVEL === 'debug' && error instanceof Error) {
-      logger.debug(error.stack ?? '(no stack trace)');
+    if (process.env.LOG_LEVEL === "debug" && error instanceof Error) {
+      logger.debug(error.stack ?? "(no stack trace)");
     }
   }
   process.exitCode = 1;
