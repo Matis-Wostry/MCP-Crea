@@ -1,0 +1,74 @@
+# =============================================================================
+# All services share the same image and the same data volume.
+#
+#   docker compose build                 build the image
+#   docker compose run --rm watch        collect + summarise today's digest
+#   docker compose run --rm -T mcp       MCP server over stdio
+#   docker compose up -d mcp-http        MCP server over HTTP
+#
+# The stdio server speaks JSON-RPC on stdin/stdout: a client spawns it on
+# demand (`run`), it is not a long-running service (`up`).
+# =============================================================================
+
+services:
+  # MCP server, stdio transport.
+  mcp:
+    build: .
+    image: dev-stack-watcher-mcp:latest
+    container_name: dsw-mcp
+    env_file:
+      # `required: false` keeps `docker compose build` working before .env exists.
+      - path: .env
+        required: false
+    environment:
+      DB_PATH: /app/data/watch.db
+    volumes:
+      - data:/app/data
+    stdin_open: true
+    tty: false
+    command: ["mcp"]
+
+  # MCP server, Streamable HTTP transport -> http://localhost:3000/mcp
+  mcp-http:
+    build: .
+    image: dev-stack-watcher-mcp:latest
+    container_name: dsw-mcp-http
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_PATH: /app/data/watch.db
+      # Inside a container the server must listen on every interface for the
+      # published port to be reachable from the host.
+      MCP_HOST: 0.0.0.0
+      MCP_PORT: 3000
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - data:/app/data
+    command: ["mcp-http"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  # One-off run of the watch pipeline (collect + summarise + store).
+  watch:
+    build: .
+    image: dev-stack-watcher-mcp:latest
+    container_name: dsw-watch
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DB_PATH: /app/data/watch.db
+    volumes:
+      - data:/app/data
+    command: ["fetch"]
+
+volumes:
+  data:
+    name: dev-stack-watcher-data
