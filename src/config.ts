@@ -96,7 +96,7 @@ export const config = {
 
     http: {
       port: readInt('MCP_PORT', 3000, 1, 65535),
-      host: readString('MCP_HOST', '127.0.0.1'),
+      host: readString('MCP_HOST', '0.0.0.0'),
       path: readString('MCP_PATH', '/mcp'),
       /** MCP clients do not always signal disconnection, so sessions expire. */
       sessionTtlMs: readInt('MCP_SESSION_TTL_MIN', 30, 1, 1440) * 60_000,
