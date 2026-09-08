@@ -1,0 +1,11 @@
+# Le projet est developpe sous Windows mais tourne sous Linux dans Docker :
+# sans cette regle, un fichier converti en CRLF casse a l'execution.
+* text=auto eol=lf
+
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+*.yml       text eol=lf
+
+*.png binary
+*.jpg binary
+*.db  binary

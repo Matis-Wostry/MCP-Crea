@@ -1,0 +1,48 @@
+{
+  "name": "dev-stack-watcher-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automated tech watch: collects GitHub and Dev.to activity, summarises it with Claude, stores it in SQLite and exposes it through an MCP server.",
+  "author": "Matis Wostry",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Matis-Wostry/MCP-Crea.git"
+  },
+  "homepage": "https://github.com/Matis-Wostry/MCP-Crea#readme",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "dev-stack-watcher": "dist/cli.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "fetch": "tsx src/cli.ts fetch",
+    "mcp": "tsx src/cli.ts mcp",
+    "mcp:http": "tsx src/cli.ts mcp-http",
+    "list": "tsx src/cli.ts list",
+    "show": "tsx src/cli.ts show",
+    "help": "tsx src/cli.ts help",
+    "start": "node dist/cli.js",
+    "fetch:prod": "node dist/cli.js fetch",
+    "mcp:prod": "node dist/cli.js mcp",
+    "mcp:http:prod": "node dist/cli.js mcp-http"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.122.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "axios": "^1.20.0",
+    "better-sqlite3": "^12.11.1",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^22.10.0",
+    "tsx": "^4.23.13",
+    "typescript": "^5.9.3"
+  }
+}

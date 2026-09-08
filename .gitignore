@@ -1,0 +1,20 @@
+node_modules/
+dist/
+
+# Secrets
+.env
+.env.local
+
+# Base SQLite et fichiers WAL
+data/*
+!data/.gitkeep
+*.db
+*.db-wal
+*.db-shm
+
+# Divers
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
