@@ -54,4 +54,5 @@ EXPOSE 3000
 
 # Fixed ENTRYPOINT plus an overridable CMD, so `docker run image fetch` works.
 ENTRYPOINT ["node", "dist/cli.js"]
-CMD ["mcp"]
+# CMD ["mcp"]
+CMD ["mcp-http"]
