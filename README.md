@@ -13,6 +13,39 @@ français**, puisque c'est le livrable destiné à être lu.
 
 ---
 
+## Utilisation MCP
+
+Une instance est déjà déployée et interrogeable publiquement (lecture seule, sans jeton).
+
+**URL du serveur** : <https://mcp-crea-production-3669.up.railway.app/mcp>
+
+### Prompts
+
+Une fois le connecteur branché :
+
+- « Montre-moi tous les résumés disponibles. »
+- « Y a-t-il un résumé pour aujourd'hui ? »
+- « Affiche le résumé du 8 septembre 2026. »
+- « Affiche le dernier résumé en date. »
+- « Dans la veille d'aujourd'hui, qu'est-ce qui est sorti côté GitHub ? »
+- « Résume-moi les articles Dev.to du dernier résumé. »
+
+
+Si Claude répond sans interroger le serveur, nomme explicitement l'outil ou la ressource :
+
+- « Utilise l'outil `list_summaries` du connecteur **mcp-crea** et montre-moi le résultat. »
+- « Appelle l'outil `latest_summary` et affiche le résumé renvoyé. »
+- « Appelle l'outil `get_summary` avec `date = 2026-09-08`. »
+- « Lis la ressource `summaries://list`. »
+- « Lis la ressource `summary://2026-09-08`. »
+- « Réponds uniquement à partir des données du connecteur **mcp-crea**, sans tes
+  connaissances générales. »
+
+Outils disponibles : `list_summaries` (`limit`, 1–200), `get_summary` (`date` au format
+`AAAA-MM-JJ`), `latest_summary` (sans paramètre).
+
+---
+
 ## Architecture
 
 ```

@@ -13,6 +13,37 @@ deliverable meant to be read.
 
 ---
 
+## Using the MCP
+
+An instance is already deployed and publicly queryable (read-only, no token).
+
+**Server URL**: <https://mcp-crea-production-3669.up.railway.app/mcp>
+
+### Prompts
+
+Once the connector is wired up :
+
+- "Show me all the available summaries."
+- "Is there a summary for today?"
+- "Show the summary for September 8th, 2026."
+- "Show the latest summary."
+- "In today's digest, what shipped on the GitHub side?"
+- "Summarise the Dev.to articles from the latest summary."
+
+If Claude answers without querying the server, name the tool or resource explicitly:
+
+- "Use the `list_summaries` tool from the **mcp-crea** connector and show me the result."
+- "Call the `latest_summary` tool and display the returned summary."
+- "Call the `get_summary` tool with `date = 2026-09-08`."
+- "Read the `summaries://list` resource."
+- "Read the `summary://2026-09-08` resource."
+- "Answer only from the **mcp-crea** connector data, not from your general knowledge."
+
+Available tools: `list_summaries` (`limit`, 1–200), `get_summary` (`date` as `YYYY-MM-DD`),
+`latest_summary` (no parameter).
+
+---
+
 ## Architecture
 
 ```
