@@ -47,7 +47,7 @@ COPY --chown=node:node package.json ./
 USER node
 
 # The SQLite store must outlive the container.
-VOLUME ["/app/data"]
+# VOLUME ["/app/data"]
 
 # Port for the Streamable HTTP transport (unused in stdio mode).
 EXPOSE 3000
